@@ -1,0 +1,222 @@
+
+220101_KOE+分析エンジン進捗_ステップ1追加
+
+******************************************************
+・Kusinoプラットフォームよりデータimport後の処理
+教師データ：[宜しくお願い致します]⇒[CSV1]⇒[周波数：X（AVE）] ↓
+（ステップ1）  　　　　　　　　　　　　　　　　　　    ⇒[声圧：Y（P-P）]　　⇒[model]
+
+分析データ：[宜しくお願い致します]⇒[CSV2]↓
+（ステップ2）                                    [model]⇒[抑揚+ or 抑揚-]判定 
+
+******************************************************
+・ステップ1（標準化）
+ログ済みのWAVデータからFFT処理後
+①縦軸：音圧
+②横軸：周波数
+を抽出しテキスト形式で保存
+（現状コードを検討中）
+
+#scipyでwavファイルをcsv形式にエクスポート
+from scipy.io.wavfile import read
+import numpy as np
+data = read('sample.wav')
+
+np.savetxt('KOE+_data.csv',data,delimiter=',')
+
+******************************************************
+
+・ステップ2（教師データ作成）
+SVM（サポートベクターマシン）をライブラリよりインポート
+ボイス前処理＆学習を実施
+- 同じディレクトリに`KOE+_data.csv`が必要（ステップ1）
+- 最後まで実行することで`model.sav`が上書き保存される
+
+テストＣｏｄｅ*************************************************
+
+import pandas as pd
+
+#pandasでcsv読込み
+df = pd.read_csv('KOE+_data.csv', header=None)
+
+#カラム名を付与
+df.columns = ['Hz', 'dB',  'label']
+
+#プロット
+df.plot(dB=df.columns[0:2])
+
+#使用したラベルを抽出
+label_list = df['label'].unique()
+
+#ラベル表示
+print(label_list)
+
+#各ラベル毎に移動平均と標準偏差のデータに変換
+import numpy as np
+
+#移動平均と標準偏差で計算対象とするデータ値
+n = 50
+
+#空のndarray(多次元配列のデータ構造)作成
+X = np.empty((0, 4)) #mean_Hz, mean_dB, std_Hz, std_dB
+y = np.empty((0))    #label
+
+#label_listの数だけ処理
+for label_value in label_list: 
+    df_part = df[df['label'] == label_value] #ラベル列がlabelと一致する行のみ抜粋
+    df_HzdB = df_part.iloc[:, 0:2] #Hz,dBのデータ列のみ抜粋
+
+    #移動平均
+    df_mean = df_HzdB.rolling(n).mean() #n個ずつのデータで平均
+    df_mean.columns = ['mean_Hz', 'mean_dB'] #列名を変更
+
+    #標準偏差
+    df_std = df_HzdB.rolling(n).std() #n個ずつのデータで標準偏差
+    df_std.columns = ['std_Hz', 'std_dB'] #列名を変更
+
+    #移動平均と標準偏差を横に結合
+    df_HzdB = df_mean.join(df_std)
+
+    #NaN（欠損値）データが１つでも含まれる行は削除
+    df_HzdB = df_HzdB.dropna()
+
+    #プロット
+    df_HzdB.plot(y=df_HzdB.columns[0:2], title=str(label_value))
+    df_HzdB.plot(y=df_HzdB.columns[2:4], title=str(label_value))
+    
+    #データをndarray(多次元配列のデータ構造)に変換してHzに追加
+    np_HzdB = df_HzdB.values
+    Hz = np.append(Hz, np_HzdB, axis=0)
+
+    #ラベルをndarrayに変換してdBに追加
+    np_label = np.ones(len(df_HzdB)) * label_value
+    dB = np.append(dB, np_label , axis=0)
+
+#確認表示
+print(Hz)
+print(dB)
+
+#ライブラリーからSVCをインポート
+from sklearn.svm import LinearSVC
+from sklearn.model_selection import train_test_split
+
+#訓練データとテストデータに分ける
+Hz_train, Hz_test, dB_train, dB_test = train_test_split(Hz, dB, test_size=0.3)
+
+#モデル作成
+model = LinearSVC()
+
+#学習
+model.fit(Hz_train, dB_train)
+
+#テストデータの予測
+dB_pred = model.predict(Hz_test)
+
+#予測精度の表示
+print(model.score(Hz_test, dB_pred))
+
+#モデルの保存
+import pickle
+filename = 'model.sav'
+pickle.dump(model, open(filename, 'wb'))
+
+******************************************************
+
+ステップ3（分析データ判定）
+# SVMジェスチャー判定
+
+- 同じディレクトリに`KOE+_data2.csv`が必要
+- 同じディレクトリに`model.sav`も必要
+
+テストＣｏｄｅ*************************************************
+
+import pandas as pd
+
+#pandasでcsv読込み
+df = pd.read_csv('KOE+_data2.csv', header=None)
+
+#カラム名を付与
+df.columns = ['Hz', 'dB',  'label']
+
+#プロット
+df.plot(dB=df.columns[0:2])
+
+#移動平均と標準偏差のデータに変換
+import numpy as np
+
+#移動平均と標準偏差で計算対象とするデータ値
+n = 50
+
+#x,y,zのデータ列のみ抜粋
+df_HzdB = df.iloc[:, 0:2]
+
+#移動平均
+df_mean = df_HzdB.rolling(n).mean() #n個ずつのデータで平均
+df_mean.columns = ['mean_Hz', 'mean_dB'] #列名を変更
+
+#標準偏差
+df_std = df_HzdB.rolling(n).std() #n個ずつのデータで標準偏差
+df_std.columns = ['std_Hz', 'std_dB] #列名を変更
+
+#移動平均と標準偏差を横に結合
+df_HzdB = df_mean.join(df_std)
+
+#NaN（欠損値）データが１つでも含まれる行は削除
+df_HzdB = df_HzdB.dropna()
+
+#プロット
+df_HzdB.plot(y=df_HzdB.columns[0:2], title='test')
+df_HzdB.plot(y=df_HzdB.columns[2:4], title='test')
+
+#データをndarray(多次元配列のデータ構造)に変換してHz_testとする
+Hz_test = df_HzdB.values
+
+#確認表示
+print(Hz_test)
+
+#ライブラリーからSVC & picle(データ直列化による保存)をインポート
+from sklearn.svm import LinearSVC
+import pickle
+
+#モデル読み込み
+model = pickle.load(open('model.sav', 'rb'))
+
+#推論
+ｄB_pred = model.predict(Hz_test)
+
+#結果表示
+print(dB_pred)
+
+#ライブラリーからsoftmax(確率分布に正規化)をインポート
+from scipy.special import softmax
+
+#各ラベルに対するスコアを出す
+dB_decition = model.decision_function(Hz_test)
+print(dB_decition)
+
+#softmaxを使って確率値に近いものに変換
+np.set_printoptions(precision=2, suppress=True)
+#小数点以下2桁表示で指数表記を禁止
+dBy_prob = softmax(dB_decition, axis=1)
+print(dB_prob)
+
+#DataFrameに変換
+df_dB_prob = pd.DataFrame(dB_prob)
+print(df_dB_prob)
+
+#列名を「抑揚」に基づき判定項目にする（文字化け防止のため英語）
+analysis = ['Yokkuyo+', 'Yokuyo-']
+label_texts = []
+
+#学習時に使ったラベルのテキストのみ抽出
+for label in model.classes_:
+  label = int(label)
+  label_texts.append(gestures[label])
+
+#列名をテキストにする
+df_y_prob.columns = label_texts
+
+#プロット
+df_dB_prob.plot()
+
+******************************************************
