@@ -1,0 +1,138 @@
+# KOE+ マスターデータ解析結果構築
+# -*- coding: utf-8 -*-wavデータimport
+import wave
+import numpy as np
+import matplotlib.pyplot as plt
+#各環境のPASSを指定！
+wav_file = wave.open("/content/drive/MyDrive/Colab Notebooks/yoroshiku_kozawa.wav" , "r" )
+buf = wav_file.readframes(wav_file.getnframes())
+data = np.frombuffer(buf, dtype="int16")
+print('★Master Data★') # マスタデータ
+print('・scale') # 単位1
+print(wav_file.getframerate()) # サンプリングレート(CD音源44100）
+print('・length') # 単位2
+print(wav_file.getnframes()) # データの個数
+plt.plot(data)
+plt.grid()
+plt.show()
+#窓関数分析*********
+#coding:utf-8
+import wave
+import numpy as np
+import scipy.fftpack
+from pylab import *
+if __name__ == "__main__":
+#各環境のPASSを指定！
+    wf =  wave.open("/content/drive/MyDrive/Colab Notebooks/yoroshiku_kozawa.wav" , "r" )
+    fs = wf.getframerate()  # サンプリング周波数
+    x = wf.readframes(wf.getnframes())
+    x = frombuffer(x, dtype="int16") / 32768.0  # 0-1に正規化　★
+    start = 40000   # サンプリングする開始位置
+    N = 100000    # FFTのサンプル数
+    blackmanWindow = np.blackman(N)  # ブラックマン窓
+    windowedData1 =  blackmanWindow * x[start:start+N]  # 切り出した波形データ（窓関数あり）
+    windowedDFT = np.fft.fft(windowedData1)
+    freqList = np.fft.fftfreq(N, d=1.0/fs)#★
+    windowedAmp = [np.sqrt(c.real ** 2 + c.imag ** 2) for c in windowedDFT]
+    # 波形を描画（窓関数あり）
+    print('★Master_F/x_Data★') # ユーザーネーム    
+    print('FFT波形/振幅描画') # グラフ種別1
+    subplot(311)  # 2行1列のグラフの1番目の位置にプロット
+    plot(range(start, start+N), windowedData1)
+    axis([start, start+N, -1.0, 1.0])
+    xlabel("time [sample]")
+    ylabel("amplitude")
+    # 振幅スペクトルを描画（窓関数あり）
+    subplot(313)# 2行1列のグラフの2番目の位置にプロット
+    plot(freqList, windowedAmp, marker='o', linestyle='-')
+    axis([0, fs/50, 0, 1000])
+    xlabel("frequency [Hz]")
+    ylabel("amplitude spectrum")
+    show()
+#*************220123_以下デバック用1*******************
+print ("*************220123_以下デバック用1*******************")#スペース記述
+print (type(windowedData1))#窓関数タイプ描画
+print (len(windowedData1)) #データ総量描画
+print (windowedData1)#生データ描画   
+plt.plot(windowedData1)#ログデータの再描画
+plt.show()
+
+#MasterData1：窓関数csv1エクスポート
+np.savetxt('/content/drive/MyDrive/Colab Notebooks/sample1.csv',windowedData1,delimiter=',')
+
+
+#ユーザーサンプル分析
+#各環境のPASSを指定！
+wav_file = wave.open("/content/drive/MyDrive/Colab Notebooks/yoroshiku_murata.wav" , "r" )
+buf = wav_file.readframes(wav_file.getnframes())
+data = np.frombuffer(buf, dtype="int16")
+print('*murata_Data*') # ユーザーネーム
+print('・scale') # 単位1
+print(wav_file.getframerate()) # サンプリングレート
+print('・length') # 単位2
+print(wav_file.getnframes()) # データの個数
+plt.plot(data)
+plt.grid()
+plt.show()
+#窓関数分析*********
+#coding:utf-8
+import wave
+import numpy as np
+import scipy.fftpack
+from pylab import *
+if __name__ == "__main__":
+#各環境のPASSを指定！
+    wf = wave.open("/content/drive/MyDrive/Colab Notebooks/yoroshiku_murata.wav", "r")
+    fs = wf.getframerate()  # サンプリング周波数
+    x = wf.readframes(wf.getnframes())
+    x = frombuffer(x, dtype="int16") / 32768.0  # 0-1に正規化　★
+    start = 40000   # サンプリングする開始位置
+    N = 100000    # FFTのサンプル数
+    blackmanWindow = np.blackman(N)  # ブラックマン窓
+    windowedData2 =  blackmanWindow * x[start:start+N]  # 切り出した波形データ（窓関数あり）
+    windowedDFT = np.fft.fft(windowedData2)
+    freqList = np.fft.fftfreq(N, d=1.0/fs)#★
+    windowedAmp = [np.sqrt(c.real ** 2 + c.imag ** 2)
+     for c in windowedDFT]
+    # 波形を描画（窓関数あり）
+    print('*murata_F/x_Data*') # ユーザーネーム
+    print('FFT波形/振幅描画') # グラフ種別1
+    subplot(311)  # 2行1列のグラフの1番目の位置にプロット
+    plot(range(start, start+N), windowedData2)
+    axis([start, start+N, -1.0, 1.0])
+    xlabel("time [sample]")
+    ylabel("amplitude")
+    # 振幅スペクトルを描画（窓関数あり）
+    subplot(313)# 2行1列のグラフの2番目の位置にプロット
+    plot(freqList, windowedAmp, marker='o', linestyle='-')
+    axis([0, fs/50, 0, 1000])
+    xlabel("frequency [Hz]")
+    ylabel("amplitude spectrum")
+    show()
+
+#*************220123_以下デバック用2*******************
+print ("*************220123_以下デバック用2*******************")#スペース記述
+print (type(windowedData2))#窓関数タイプ描画
+print (len(windowedData2)) #データ総量描画
+print (windowedData2)#生データ描画   
+plt.plot(windowedData2)#ログデータの再描画
+plt.show()
+
+#murataData2：窓関数csv2エクスポート
+np.savetxt('/content/drive/MyDrive/Colab Notebooks/sample2.csv',windowedData2,delimiter=',')
+
+#Master音源デバック再生用
+#音声再生ライブラリ「TensorFlow」が未導入の場合
+#以下パッケージを一旦インストール：「!pip install tensorflow-io」
+import tensorflow as tf#テンソルフローimport
+import tensorflow_io as tfio
+
+#audioプレーヤを描画
+#各環境のPASSを指定！
+audio1 = tfio.audio.AudioIOTensor('/content/drive/MyDrive/Colab Notebooks/yoroshiku_kozawa.wav')
+print(audio1)
+audio1_slice = audio1[100:]#音量スケーリング
+audio1_tensor = tf.squeeze(audio1_slice, axis=[-1])# 再描画設定
+print(audio1_tensor)
+from IPython.display import Audio# audioプレーヤをインポート
+Audio(audio1_tensor.numpy(), rate=audio.rate.numpy())# プレーヤ1描画
